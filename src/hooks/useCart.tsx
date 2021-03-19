@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useContext, useState } from "react";
 import { toast } from "react-toastify";
 import { api } from "../services/api";
-import { Product } from "../types";
+import { Product, Stock } from "../types";
 
 interface CartProviderProps {
   children: ReactNode;
@@ -33,34 +33,16 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
   });
 
   const addProduct = async (productId: number) => {
-    const isAlreadyInCart =
-      cart.findIndex((item) => item.id === productId) !== -1;
-
     try {
-      const product = await api.get(`/products/${productId}`);
-
-      const amountInStock = await api.get(`/stock/${productId}`);
+      const isAlreadyInCart =
+        cart.findIndex((item) => item.id === productId) !== -1;
 
       if (isAlreadyInCart) {
-        const currentAmount = cart.filter((item) => item.id === productId)[0]
-          .amount;
-
-        if (amountInStock.data.amount < currentAmount) {
-          toast.error("Quantidade solicitada fora de estoque");
-        } else {
-          const addingAmount = cart.filter((item) =>
-            item.id === productId
-              ? { ...item, amount: (item.amount += 1) }
-              : item
-          );
-
-          setCart(addingAmount);
-          localStorage.setItem(
-            "@RocketShoes:cart",
-            JSON.stringify(addingAmount)
-          );
-        }
+        const amount = cart.filter((item) => item.id === productId)[0].amount;
+        updateProductAmount({ productId, amount: amount + 1 });
       } else {
+        const product = await api.get<Product>(`/products/${productId}`);
+
         setCart([...cart, { ...product.data, amount: 1 }]);
         localStorage.setItem(
           "@RocketShoes:cart",
@@ -97,7 +79,7 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      const { data } = await api.get(`/stock/${productId}`);
+      const { data } = await api.get<Stock>(`/stock/${productId}`);
       const inStock = data.amount;
 
       if (amount <= 0) {
